@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Données locales
+sentinelle.sqlite
+data/images/
+logs/
+.env
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
