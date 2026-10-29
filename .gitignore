@@ -22,3 +22,6 @@ frontend/node_modules/
 .DS_Store
 .idea/
 .vscode/
+
+# TS build info
+frontend/*.tsbuildinfo
