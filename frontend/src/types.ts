@@ -91,6 +91,17 @@ export interface ImageDate {
   cloud_cover: number | null;
 }
 
+export interface ZoneFrame {
+  date: string;
+  datetime: string;
+  satellite: string;
+  cloud_cover: number | null;
+  is_reference: boolean;
+  is_detection: boolean;
+  url: string;
+  ndvi_url: string;
+}
+
 export const SEVERITY_LABEL: Record<Severity, string> = {
   urgente: "Urgente",
   moderee: "Modérée",

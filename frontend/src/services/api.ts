@@ -1,4 +1,4 @@
-import type { Aoi, Comparison, Health, ImageDate, NdviPoint, ZoneDetail, ZoneSummary } from "../types";
+import type { Aoi, Comparison, Health, ImageDate, NdviPoint, ZoneDetail, ZoneFrame, ZoneSummary } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -19,12 +19,22 @@ export const api = {
   zoneList: () => get<ZoneSummary[]>("/api/zones/list"),
   zone: (id: string) => get<ZoneDetail>(`/api/zones/${id}`),
   comparison: (id: string) => get<Comparison>(`/api/zones/${id}/comparison`),
+  frames: (id: string) => get<ZoneFrame[]>(`/api/zones/${id}/frames`),
   ndviHistory: (id: string) => get<NdviPoint[]>(`/api/zones/${id}/ndvi-history`),
   imageryDates: () => get<ImageDate[]>("/api/imagery/dates"),
   aois: () => get<Aoi[]>("/api/aois"),
   tileUrl: (layer: "ndvi" | "truecolor", date?: string) =>
     `${BASE}/api/tiles/${layer}/{z}/{x}/{y}.png${date ? `?date=${date}` : ""}`,
 };
+
+/** Ajoute mode / taille / cadrage à une URL de vignette de zone (base contenant déjà ?img=…). */
+export function frameSrc(base: string, o: { mode?: "truecolor" | "ndvi"; size?: number; extent?: number } = {}): string {
+  const u = new URL(BASE + base, window.location.origin);
+  if (o.mode === "ndvi") u.searchParams.set("mode", "ndvi");
+  if (o.size) u.searchParams.set("size", String(o.size));
+  if (o.extent) u.searchParams.set("extent_m", String(o.extent));
+  return u.toString();
+}
 
 export const fmt = {
   date: (iso: string | null | undefined) =>

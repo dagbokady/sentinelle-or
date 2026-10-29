@@ -179,6 +179,52 @@ def ndvi_history(zone_id: uuid.UUID, db: Session = Depends(get_db)):
     return [NdviPoint(date=h.capture_date, ndvi_mean=h.ndvi_mean, image_id=h.image_id) for h in d.ndvi_history]
 
 
+def _zone_images(db: Session, d: Detection) -> list[Image]:
+    """Toutes les images exploitables de la zone (même tuile/capteur que la détection), chronologiques."""
+    if d.image is None:
+        return []
+    return list(db.scalars(
+        select(Image).where(Image.tile_id == d.image.tile_id, Image.satellite == d.image.satellite,
+                            Image.processed.is_(True), Image.file_path.is_not(None))
+        .order_by(asc(Image.acquisition_date))))
+
+
+@router.get("/zones/{zone_id}/frames", summary="Dates d'images disponibles pour la visionneuse de la zone")
+def zone_frames(zone_id: uuid.UUID, db: Session = Depends(get_db)):
+    """Frise temporelle de la zone : chaque date rend une vignette cadrée sur la zone (couleurs / NDVI)."""
+    d = get_detection(db, zone_id)
+    ref_id = d.reference_image_id
+    cur_id = d.image_id
+    out = []
+    for img in _zone_images(db, d):
+        base = f"/api/zones/{d.id}/frame/{img.acquisition_date.date().isoformat()}.png?img={img.id.hex[:8]}"
+        out.append({
+            "date": img.acquisition_date.date().isoformat(),
+            "datetime": img.acquisition_date.isoformat(),
+            "satellite": img.satellite,
+            "cloud_cover": img.cloud_cover,
+            "is_reference": img.id == ref_id,
+            "is_detection": img.id == cur_id,
+            "url": base,
+            "ndvi_url": base + "&mode=ndvi",
+        })
+    return out
+
+
+@router.get("/zones/{zone_id}/frame/{date}.png", summary="Vignette de la zone à une date donnée",
+            response_class=Response, responses={200: {"content": {"image/png": {}}}})
+def zone_frame(zone_id: uuid.UUID, date: str, mode: str = Query("truecolor", pattern="^(truecolor|ndvi)$"),
+               size: int = Query(512, ge=64, le=1536), extent_m: float = Query(900, ge=200, le=6000),
+               db: Session = Depends(get_db)):
+    """Rend la zone telle qu'elle apparaît sur l'image de cette date exacte (pour la visionneuse en live)."""
+    d = get_detection(db, zone_id)
+    img = next((i for i in _zone_images(db, d) if i.acquisition_date.date().isoformat() == date), None)
+    if img is None or not Path(img.file_path).exists():
+        return Response(status_code=404)
+    png = render_thumbnail(img.file_path, d.geometry, mode=mode, size=size, min_extent_m=extent_m)
+    return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+
+
 # --------------------------------------------------------------------------- #
 # Tuiles raster (fond Sentinel-2 daté) + métadonnées
 # --------------------------------------------------------------------------- #

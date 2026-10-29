@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, fmt } from "../services/api";
-import type { Comparison, NdviPoint, ZoneDetail as Zone } from "../types";
+import type { Comparison, NdviPoint, ZoneDetail as Zone, ZoneFrame } from "../types";
 import { SEVERITY_LABEL } from "../types";
+import CompareViewer from "./CompareViewer";
 
 interface Props {
   zoneId: string;
@@ -16,6 +17,8 @@ export default function ZoneDetail({ zoneId, onClose, onShowOnMap }: Props) {
   const [zone, setZone] = useState<Zone | null>(null);
   const [cmp, setCmp] = useState<Comparison | null>(null);
   const [history, setHistory] = useState<NdviPoint[]>([]);
+  const [frames, setFrames] = useState<ZoneFrame[]>([]);
+  const [viewer, setViewer] = useState(false);
   const [mode, setMode] = useState<"truecolor" | "ndvi">("truecolor");
   const [tab, setTab] = useState<Tab>("preuves");
   const [error, setError] = useState<string | null>(null);
@@ -23,9 +26,11 @@ export default function ZoneDetail({ zoneId, onClose, onShowOnMap }: Props) {
 
   useEffect(() => {
     setError(null);
+    setViewer(false);
     Promise.all([api.zone(zoneId), api.comparison(zoneId), api.ndviHistory(zoneId)])
       .then(([z, c, h]) => { setZone(z); setCmp(c); setHistory(h); })
       .catch((e) => setError(String(e)));
+    api.frames(zoneId).then(setFrames).catch(() => setFrames([]));
   }, [zoneId]);
 
   const copyGps = () => {
@@ -101,8 +106,11 @@ export default function ZoneDetail({ zoneId, onClose, onShowOnMap }: Props) {
               return (
                 <figure key={k}>
                   {side ? (
-                    <img src={mode === "ndvi" ? side.ndvi_url : side.url}
-                         alt={`Image ${k === "before" ? "avant" : "après"} détection`} loading="lazy" />
+                    <button className="thumb-btn" onClick={() => setViewer(true)} title="Agrandir les preuves">
+                      <img src={mode === "ndvi" ? side.ndvi_url : side.url}
+                           alt={`Image ${k === "before" ? "avant" : "après"} détection`} loading="lazy" />
+                      <span className="thumb-zoom" aria-hidden>⤢</span>
+                    </button>
                   ) : <div className="empty">Indisponible</div>}
                   <figcaption><b>{k === "before" ? "Avant" : "Après"}</b><span>{side ? fmt.date(side.date) : "—"}</span></figcaption>
                   {side?.ndvi_mean != null && <figcaption className="sub"><span>NDVI moyen</span><span>{side.ndvi_mean.toFixed(2)}</span></figcaption>}
@@ -110,7 +118,15 @@ export default function ZoneDetail({ zoneId, onClose, onShowOnMap }: Props) {
               );
             })}
           </div>
+          {frames.length > 1 && (
+            <button className="btn-enlarge" onClick={() => setViewer(true)}>
+              ⤢ Agrandir · comparer et faire défiler les {frames.length} dates
+            </button>
+          )}
           <p className="caption">Contour rouge : zone détectée, au pixel près (10 m). Le NDVI passe du vert (végétation) au brun (sol nu).</p>
+          {viewer && frames.length > 0 && (
+            <CompareViewer frames={frames} initialMode={mode} onClose={() => setViewer(false)} />
+          )}
         </div>
       ) : (
         <div className="ev-body">

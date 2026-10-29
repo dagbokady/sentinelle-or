@@ -14,6 +14,12 @@ export default function App() {
 
   useEffect(() => {
     api.health().then(setHealth).catch((e) => setError(`Connexion à l'API impossible (${e.message})`));
+    // Lien partageable : ?zone=<id> ouvre directement la fiche et centre la carte
+    const id = new URLSearchParams(window.location.search).get("zone");
+    if (id) {
+      setSelectedId(id);
+      api.zone(id).then((z) => setFocus({ bounds: z.bounds, key: Date.now() })).catch(() => {});
+    }
   }, []);
 
   const toggle = (s: Severity) =>
