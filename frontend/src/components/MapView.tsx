@@ -24,6 +24,8 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
   focus: MapFocus | null;
+  autoFit?: boolean;
+  about?: React.ReactNode;
 }
 
 interface ZoneProps {
@@ -53,7 +55,7 @@ function Controller({ focus, onView, mapRef }: {
   return null;
 }
 
-export default function MapView({ severity, selectedId, onSelect, focus }: Props) {
+export default function MapView({ severity, selectedId, onSelect, focus, autoFit = false, about }: Props) {
   const [data, setData] = useState<GeoJSON.FeatureCollection | null>(null);
   const [zoom, setZoom] = useState(7);
   const [aois, setAois] = useState<Aoi[]>([]);
@@ -61,9 +63,25 @@ export default function MapView({ severity, selectedId, onSelect, focus }: Props
   const [s2date, setS2date] = useState<string | null>(null);
   const [ndvi, setNdvi] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
+  const autoFitted = useRef(false);
 
   // --- Tâche 8 : récupérer les zones de l'API et les afficher sur la carte ---
   useEffect(() => { api.zones().then(setData).catch(() => setData(null)); }, []);
+
+  // --- Première lecture : cadrer sur l'étendue réelle des détections (pas le pays vide) ---
+  useEffect(() => {
+    if (!autoFit || autoFitted.current || !data || !mapRef.current || data.features.length === 0) return;
+    let latMin = 90, latMax = -90, lonMin = 180, lonMax = -180;
+    for (const f of data.features) {
+      const p = f.properties as unknown as { lat: number; lon: number };
+      if (typeof p.lat !== "number" || typeof p.lon !== "number") continue;
+      latMin = Math.min(latMin, p.lat); latMax = Math.max(latMax, p.lat);
+      lonMin = Math.min(lonMin, p.lon); lonMax = Math.max(lonMax, p.lon);
+    }
+    if (latMin > latMax) return;
+    autoFitted.current = true;
+    mapRef.current.fitBounds([[latMin, lonMin], [latMax, lonMax]], { padding: [70, 70], maxZoom: 12 });
+  }, [data, autoFit]);
   useEffect(() => {
     api.aois().then(setAois).catch(() => setAois([]));
     api.imageryDates().then(setDates).catch(() => setDates([]));
@@ -165,6 +183,7 @@ export default function MapView({ severity, selectedId, onSelect, focus }: Props
                 onClick={() => mapRef.current?.flyToBounds(CI_BOUNDS, { duration: 1 })}>⌂</button>
       </div>
       {zoom < POLYGON_MIN_ZOOM && <div className="map-hint">Zoomez pour voir les contours des zones</div>}
+      {about}
     </div>
   );
 }
