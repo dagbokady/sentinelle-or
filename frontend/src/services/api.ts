@@ -16,7 +16,8 @@ export const api = {
   health: () => get<Health>("/api/health"),
   zones: (severity?: string, region?: string, minScore?: number) =>
     get<GeoJSON.FeatureCollection>("/api/zones", { severity, region, min_score: minScore }),
-  zoneList: () => get<ZoneSummary[]>("/api/zones/list"),
+  zoneList: (opts?: { sort?: "score" | "date" | "surface" | "delta_ndvi"; order?: "asc" | "desc"; limit?: number }) =>
+    get<ZoneSummary[]>("/api/zones/list", { sort: opts?.sort, order: opts?.order, limit: opts?.limit }),
   zone: (id: string) => get<ZoneDetail>(`/api/zones/${id}`),
   comparison: (id: string) => get<Comparison>(`/api/zones/${id}/comparison`),
   frames: (id: string) => get<ZoneFrame[]>(`/api/zones/${id}/frames`),
